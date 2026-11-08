@@ -12,6 +12,8 @@ composer validate --strict
 composer lint
 composer test
 php scripts/smoke.php
+php scripts/build-installer.php
+php scripts/smoke-installer.php
 composer build
 php dist/modx.phar --version
 ```
@@ -31,12 +33,16 @@ The smoke test also covers v0.1.0 Compose compatibility, PHAR file permissions, 
 
 Keep the no-overwrite contract, private credentials, localhost binding and database-preserving `down` behavior. Add meaningful regression coverage for behavioral changes. Do not add production deployment or destructive reset behavior implicitly.
 
+## Standalone installer
+
+Edit `scripts/install.php`, then run `php scripts/build-installer.php` and commit the generated root `install.sh`. The shell wrapper checks PHP, creates a private temporary script and forwards arguments; the embedded PHP has no Composer dependencies. `BootstrapInstallerTest` injects an offline transport with real signed fixture PHARs. It checks failed downloads/checksums, version mismatch, safe updates, collisions, concurrent edits, profiles and real shell discovery. Native smoke tests download a real existing release into an isolated child HOME and exercise available Bash/Zsh/Fish shells without changing host profiles. CI runs these checks on Linux and macOS.
+
 ## Release process
 
 1. Update `Application::VERSION`, README version examples and `CHANGELOG.md`. Follow semantic versioning; v0.x may evolve between minor releases.
 2. Pass the checks above and the real Docker smoke test. Review the Git diff and ensure no local project credentials are tracked.
 3. Merge to `main` and wait for CI to pass. Build the PHAR from the exact commit being tagged (`composer build`).
-4. Create an annotated `vX.Y.Z` tag and push it. Publish a GitHub release with `dist/modx.phar` and `dist/SHA256SUMS`, describing changes and known limitations.
+4. Create an annotated `vX.Y.Z` tag and push it. Publish a GitHub release with `dist/modx.phar`, `dist/install.sh` and `dist/SHA256SUMS`, describing changes and known limitations.
 5. Confirm downloadable assets and checksum. The release workflow independently rebuilds and verifies the PHAR and uploads a CI artifact.
 
 PHARs embed production Composer dependencies and their license files. They do not embed MODX, tests or private files. Packagist registration is a separate maintainer action.

@@ -22,29 +22,48 @@ cd my-site
 - A regular (non-root) host user for running site containers. UID/GID are derived from project file ownership; the PHP POSIX extension is not required.
 - macOS or Linux, on ARM64 (including Apple Silicon) or AMD64. Windows users should run inside WSL2 with Docker integration.
 
-The generated site runs PHP 8.3, MariaDB 11.4 and Nginx 1.28. The host only runs the installer. This is a **local development environment**: HTTP binds to `127.0.0.1` and the database has no published port. Production deployment, TLS, backups and upgrades are outside v0.1 scope.
+The generated site runs PHP 8.3, MariaDB 11.4 and Nginx 1.28. The host only runs the installer. This is a **local development environment**: HTTP binds to `127.0.0.1` and the database has no published port. Production deployment, TLS, backups and upgrades are outside the current release scope.
 
 ## Install
 
-Download the PHAR and checksum from the [latest release](https://github.com/crystaldaking/modx-installer/releases/latest):
+Install the latest release on Linux or macOS (PHP 8.2+ must already be available):
 
 ```sh
-mkdir modx-cli && cd modx-cli
-gh release download --repo crystaldaking/modx-installer --pattern modx.phar --pattern SHA256SUMS
-shasum -a 256 -c SHA256SUMS
-chmod +x modx.phar
-mkdir -p "$HOME/.local/bin"
-mv modx.phar "$HOME/.local/bin/modx"
-# Ensure $HOME/.local/bin is on your PATH.
-modx doctor
+curl -fsSL https://github.com/crystaldaking/modx-installer/releases/latest/download/install.sh | sh
 ```
+
+Open a **new terminal**, then use the command from any directory:
+
+```sh
+modx --version
+modx doctor
+modx new my-site
+```
+
+The installer downloads and verifies the official PHAR's SHA-256, checks its package/version with local PHP, and atomically installs it as `~/.local/bin/modx`. It configures PATH for Bash, Zsh or Fish (3.2+) without `sudo`. Re-running the command updates a managed installation and keeps one PATH block. A running installer cannot change its parent shell's environment, so it also prints an activation command for your current terminal.
+
+To inspect the script before running, or choose options:
+
+```sh
+curl -fsSL https://github.com/crystaldaking/modx-installer/releases/latest/download/install.sh -o install-modx.sh
+sh install-modx.sh --help
+sh install-modx.sh --version=0.2.0
+sh install-modx.sh --install-dir="$HOME/bin"
+sh install-modx.sh --no-modify-path
+```
+
+`--version` here selects the **installer release**, not the MODX CMS version. Custom install directories must be absolute and contain no colons/newlines. `--no-modify-path` leaves shell profiles untouched and prints the required activation command. Existing unmanaged or manually modified `modx` files are preserved; `--force` explicitly replaces one if desired. Download/checksum/version failures preserve the working command and profile contents. Installation does not require a running Docker daemon; site creation does.
+
+PATH configuration updates Bash's `.bashrc` and its first existing login file (`.bash_profile`, `.bash_login`, `.profile`), or creates `.profile`. Zsh uses `.zprofile` and `.zshrc` under exported `ZDOTDIR` (default: HOME). Fish uses `$XDG_CONFIG_HOME/fish/conf.d/modx-installer.fish` (default: `~/.config/fish/conf.d/`). Profile symlinks and content outside the marked `MODX Installer` block are preserved. Other shells can use `--no-modify-path` and manual PATH configuration.
+
+To remove the default installation, delete `~/.local/bin/modx` and `~/.local/bin/.modx-installer.json`, then remove the marked PATH blocks from those shell files (or delete the dedicated Fish file). The empty `.modx-installer.lock` can also be removed when no installer is running. Site files and Docker volumes are separate from the CLI installation.
 
 Or install from source with Composer:
 
 ```sh
 git clone https://github.com/crystaldaking/modx-installer.git
 cd modx-installer
-git checkout v0.1.1
+git checkout v0.2.0
 composer install --no-dev
 ./bin/modx doctor
 ./bin/modx new ../my-site
@@ -134,11 +153,13 @@ composer validate --strict
 composer lint
 composer test
 php scripts/smoke.php                    # Real MODX + Docker; temporary project, cleaned afterwards
+php scripts/build-installer.php           # Regenerate install.sh from scripts/install.php
+php scripts/smoke-installer.php           # Real release download, isolated HOME and Bash/Zsh/Fish
 composer build
 php dist/modx.phar --version
 ```
 
-CI runs unit tests on PHP 8.2–8.5, validates the Composer manifest, builds/smoke-tests the PHAR, and installs a real MODX site on Linux AMD64. The smoke test creates a site under umask `0077` and checks public CSS readability, writable PHAR scaffolding, the homepage, manager, blocked paths, setup removal, persistence across down/up, old project templates, missing configuration/database records and an unexpected `exit(0)` during bootstrap. See [CONTRIBUTING.md](CONTRIBUTING.md) for the architecture and release process.
+CI checks bootstrap installation and shell PATH on Linux/macOS, runs unit tests on PHP 8.2–8.5, validates the Composer manifest, builds/smoke-tests the PHAR, and installs a real MODX site on Linux AMD64. The smoke test creates a site under umask `0077` and checks public CSS readability, writable PHAR scaffolding, the homepage, manager, blocked paths, setup removal, persistence across down/up, old project templates, missing configuration/database records and an unexpected `exit(0)` during bootstrap. See [CONTRIBUTING.md](CONTRIBUTING.md) for the architecture and release process.
 
 ## Roadmap
 

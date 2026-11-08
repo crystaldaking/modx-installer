@@ -11,6 +11,7 @@ if (ini_get('phar.readonly')) {
     throw new RuntimeException('Use composer build, or php -d phar.readonly=0 scripts/build-phar.php.');
 }
 $root = dirname(__DIR__);
+require __DIR__.'/build-installer.php';
 $fs = new Filesystem();
 $stage = $root.'/dist/build';
 $fs->remove($stage);
@@ -35,8 +36,10 @@ try {
     $phar->stopBuffering();
     unset($phar);
     chmod($path, 0755);
-    file_put_contents($root.'/dist/SHA256SUMS', hash_file('sha256', $path)."  modx.phar\n");
-    echo "Built dist/modx.phar and dist/SHA256SUMS\n";
+    $fs->copy($root.'/install.sh', $root.'/dist/install.sh', true);
+    $fs->chmod($root.'/dist/install.sh', 0755);
+    file_put_contents($root.'/dist/SHA256SUMS', hash_file('sha256', $path)."  modx.phar\n".hash_file('sha256', $root.'/dist/install.sh')."  install.sh\n");
+    echo "Built dist/modx.phar, dist/install.sh and dist/SHA256SUMS\n";
 } finally {
     $fs->remove($stage);
 }

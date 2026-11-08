@@ -2,6 +2,21 @@
 
 All notable changes are recorded here. Versions follow semantic versioning.
 
+## [0.2.0] - 2026-11-09
+
+### Added
+
+- Standalone `install.sh` bootstrap for Linux and macOS: verified release downloads, local PHP compatibility/version checks, atomic executable replacement and managed installation metadata.
+- User installation into `~/.local/bin`, automatic PATH configuration for Bash, Zsh and Fish, custom installation directory, pinned version, `--no-modify-path` and explicit `--force` for unmanaged commands.
+- Repeatable updates, profile symlink preservation, safe quoting for paths with spaces/quotes, concurrent-edit detection and installer locking.
+- Offline regression tests plus native download/PATH smoke tests on Linux and macOS.
+
+### Changed
+
+- Release assets now contain `install.sh` alongside `modx.phar`; `SHA256SUMS` covers both files.
+- `composer build` regenerates the standalone shell installer from `scripts/install.php` before packaging it.
+- Installation instructions now use the bootstrap and explain activation in the current terminal and removal.
+
 ## [0.1.1] - 2026-11-09
 
 Deep self-review fixes.
@@ -52,3 +67,5 @@ Initial public release.
 [0.1.0]: https://github.com/crystaldaking/modx-installer/releases/tag/v0.1.0
 
 [0.1.1]: https://github.com/crystaldaking/modx-installer/compare/v0.1.0...v0.1.1
+
+[0.2.0]: https://github.com/crystaldaking/modx-installer/compare/v0.1.1...v0.2.0

@@ -6,20 +6,39 @@
 
 ## Установка
 
-Скачайте PHAR и контрольную сумму из [релиза](https://github.com/crystaldaking/modx-installer/releases/latest):
+Установите последнюю версию на Linux или macOS:
 
 ```sh
-mkdir modx-cli && cd modx-cli
-gh release download --repo crystaldaking/modx-installer --pattern modx.phar --pattern SHA256SUMS
-shasum -a 256 -c SHA256SUMS
-chmod +x modx.phar
-mkdir -p "$HOME/.local/bin"
-mv modx.phar "$HOME/.local/bin/modx"
-# Добавьте $HOME/.local/bin в PATH, если каталог ещё не добавлен.
-modx doctor
+curl -fsSL https://github.com/crystaldaking/modx-installer/releases/latest/download/install.sh | sh
 ```
 
-Либо клонируйте репозиторий, переключитесь на `v0.1.1`, выполните `composer install --no-dev` и запускайте `./bin/modx`. Отдельная регистрация в Packagist пока не выполнена.
+Откройте **новый терминал** — `modx` будет доступен из любой папки:
+
+```sh
+modx --version
+modx doctor
+modx new my-site
+```
+
+Скрипт проверяет PHP и расширения, скачивает PHAR, сверяет SHA-256 и проверяет версию перед установкой в `~/.local/bin/modx`. Затем настраивает PATH для Bash, Zsh или Fish 3.2+. `sudo`, Composer и `gh` не нужны. Повторный запуск обновляет установленную программу без дублирования блока PATH. Для текущего терминала установщик печатает команду активации: дочерний процесс не может изменить окружение уже открытой оболочки.
+
+Можно сначала скачать и просмотреть скрипт, затем выбрать параметры:
+
+```sh
+curl -fsSL https://github.com/crystaldaking/modx-installer/releases/latest/download/install.sh -o install-modx.sh
+sh install-modx.sh --help
+sh install-modx.sh --version=0.2.0
+sh install-modx.sh --install-dir="$HOME/bin"
+sh install-modx.sh --no-modify-path
+```
+
+Здесь `--version` выбирает версию CLI, а не CMS MODX. `--install-dir` принимает абсолютный путь без двоеточий и переводов строки; `--no-modify-path` оставляет shell-конфиги без изменений. Чужая или вручную изменённая команда `modx` защищена от перезаписи; для осознанной замены есть `--force`. Ошибки скачивания, контрольной суммы или проверки версии сохраняют работающую программу и содержимое профилей. Docker нужен для создания сайтов, но не для установки CLI.
+
+Bash получает блок PATH в `.bashrc` и используемом login-профиле; Zsh — в `.zprofile` и `.zshrc` с учётом экспортированного `ZDOTDIR`; Fish — в `$XDG_CONFIG_HOME/fish/conf.d/modx-installer.fish`. Пользовательский текст и символические ссылки профилей сохраняются.
+
+Для удаления CLI удалите `~/.local/bin/modx`, `~/.local/bin/.modx-installer.json` и отмеченные блоки PATH (либо отдельный файл Fish). Пустой `.modx-installer.lock` можно удалить, когда установщик не работает. Файлы сайтов и базы Docker хранятся отдельно.
+
+Альтернатива: клонируйте репозиторий, переключитесь на `v0.2.0`, выполните `composer install --no-dev` и запускайте `./bin/modx`. Регистрация в Packagist пока не выполнена.
 
 ## Использование
 
@@ -44,7 +63,7 @@ CLI не перезаписывает непустые каталоги, вкл�
 
 Установочный XML создаётся во временном каталоге контейнера вне webroot и удаляется при завершении PHP. Перед удалением `setup` CLI отдельно проверяет загрузку MODX и пароль администратора. При ошибке данные сохраняются: изучите `modx logs` и `app/core/cache/logs/`, устраните причину и повторите `modx up`. Автоматический откат частичной установки не предусмотрен; существующий конфиг защищён от повторной установки поверх базы.
 
-`modx down` сохраняет базу в Docker volume. База не хранится в Git — резервируйте её отдельно вместе с `.env` и файлами сайта. Перенос установленного проекта, production-развёртывание, HTTPS и обновление CMS не автоматизированы в v0.1.
+`modx down` сохраняет базу в Docker volume. База не хранится в Git — резервируйте её отдельно вместе с `.env` и файлами сайта. Перенос установленного проекта, production-развёртывание, HTTPS и обновление CMS не автоматизированы в текущей версии.
 
 Полное описание структуры, восстановления, ограничений и разработки: [README.md](README.md). Лицензия инструмента — [MIT](LICENSE). Проект независимый, не является официальным продуктом MODX.
 
