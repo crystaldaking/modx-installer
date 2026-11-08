@@ -1,0 +1,5 @@
+MODX Installer is an independent community project, not affiliated with or endorsed by MODX, LLC.
+MODX is a trademark of its respective owner. MODX Revolution is downloaded on demand
+from the official distribution service and is not bundled in this project's releases.
+MODX Revolution is licensed separately under GPL-2.0-or-later; see the downloaded
+package's license. Docker images and Composer dependencies retain their own licenses.

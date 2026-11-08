@@ -1,0 +1,14 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+$autoload = [__DIR__.'/../../../autoload.php', __DIR__.'/../vendor/autoload.php'];
+foreach ($autoload as $file) {
+    if (is_file($file)) {
+        require $file;
+        exit((new ModxInstaller\Application())->run());
+    }
+}
+fwrite(STDERR, "Dependencies missing. Run composer install first.\n");
+exit(1);

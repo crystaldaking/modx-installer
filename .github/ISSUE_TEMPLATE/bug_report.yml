@@ -1,0 +1,23 @@
+name: Bug report
+description: Report an installer problem without sharing credentials.
+body:
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Installer, PHP, Docker and Compose versions; OS and architecture.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps, expected result and actual result
+      description: Include exact commands. Redact credentials and sensitive paths.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Redacted logs
+      description: Never upload .env, installed MODX configuration or initial passwords.
+      render: text

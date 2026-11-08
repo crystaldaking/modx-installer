@@ -1,0 +1,7 @@
+/vendor/
+/dist/
+/.phpunit.cache/
+/.env
+/.DS_Store
+/.idea/
+/.vscode/
