@@ -138,7 +138,7 @@ composer build
 php dist/modx.phar --version
 ```
 
-CI runs unit tests on PHP 8.2–8.5, validates the Composer manifest, builds/smoke-tests the PHAR, and installs a real MODX site on Linux AMD64. The smoke test checks writable PHAR scaffolding, the homepage, manager, blocked paths, setup removal, persistence across down/up, old project templates, missing configuration/database records and an unexpected `exit(0)` during bootstrap. See [CONTRIBUTING.md](CONTRIBUTING.md) for the architecture and release process.
+CI runs unit tests on PHP 8.2–8.5, validates the Composer manifest, builds/smoke-tests the PHAR, and installs a real MODX site on Linux AMD64. The smoke test creates a site under umask `0077` and checks public CSS readability, writable PHAR scaffolding, the homepage, manager, blocked paths, setup removal, persistence across down/up, old project templates, missing configuration/database records and an unexpected `exit(0)` during bootstrap. See [CONTRIBUTING.md](CONTRIBUTING.md) for the architecture and release process.
 
 ## Roadmap
 

@@ -374,4 +374,19 @@ final class InstallerTest extends TestCase
         $project->env();
     }
 
+    public function testRestrictiveUmaskKeepsPublicAssetsReadableAndCredentialsPrivate(): void
+    {
+        $previous = umask(0077);
+        try {
+            $project = $this->project();
+        } finally {
+            umask($previous);
+        }
+        self::assertSame(0755, fileperms($project->directory.'/app') & 0777);
+        self::assertSame(0755, fileperms($project->directory.'/app/core/docs') & 0777);
+        self::assertSame(0644, fileperms($project->directory.'/app/index.php') & 0777);
+        self::assertSame(0644, fileperms($project->directory.'/compose.yaml') & 0777);
+        self::assertSame(0600, fileperms($project->directory.'/.env') & 0777);
+    }
+
 }

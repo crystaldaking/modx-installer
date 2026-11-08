@@ -44,7 +44,12 @@ $get = static function (string $url): array {
 };
 try {
     // --no-start exercises version discovery and deferred installation, with the PHAR if supplied.
-    $run(['new', $directory, '--no-start', '--no-interaction']);
+    $previousMask = umask(0077);
+    try {
+        $run(['new', $directory, '--no-start', '--no-interaction']);
+    } finally {
+        umask($previousMask);
+    }
     $project = Project::find($directory);
     foreach (['compose.yaml', 'docker/php/Dockerfile', 'docker/nginx/default.conf', 'docker/install.php', 'docker/verify.php'] as $file) {
         $assert(is_writable($directory.'/'.$file), 'PHAR generated a read-only file: '.$file);
@@ -61,6 +66,8 @@ try {
     $assert($status === 200 && is_string($body) && strlen($body) > 50, 'Homepage is not working.');
     [$status, $body] = $get($url.'/manager/');
     $assert($status === 200 && str_contains(strtolower((string)$body), 'login'), 'Manager login page is not working.');
+    [$status, $body] = $get($url.'/manager/templates/default/css/login.css');
+    $assert($status === 200 && strlen((string)$body) > 50, 'Nginx cannot read public assets created under umask 0077.');
     foreach (['/core/docs/version.inc.php', '/setup/', '/.env', '/config.core.php', '/manager/config.core.php'] as $path) {
         [$status] = $get($url.$path);
         $assert($status === 404, 'Sensitive path accessible: '.$path);

@@ -14,6 +14,7 @@ Deep self-review fixes.
 - Wait for PHP and manager HTTP readiness before reporting success; add PHP/web health checks to new templates.
 - Serialize `up`/`down` with a host lock and installation/verification with a container lock.
 - Use the current CLI's bundled runtime for older generated projects; allow installed projects to omit initial admin credentials.
+- Keep public MODX directories/assets readable under a restrictive host umask (0077), with a real Nginx CSS response check.
 - Keep generated Docker files editable when running from a PHAR; restrict installed database configuration to `0600` and stage on the target filesystem.
 - Reject normalized ZIP path/file-directory conflicts before extraction and bound each entry's copied bytes.
 - Stream container logs without an unbounded retained copy; suppress credentials before smoke-test output reaches pipes.

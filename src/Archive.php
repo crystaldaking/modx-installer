@@ -10,6 +10,7 @@ final class Archive
 {
     public function extract(string $archive, string $destination, string $version): void
     {
+        $destination = \Symfony\Component\Filesystem\Path::makeAbsolute($destination, getcwd());
         $zip = new \ZipArchive();
         if ($zip->open($archive) !== true) {
             throw new \RuntimeException('The download is not a readable ZIP archive.');
@@ -65,14 +66,24 @@ final class Archive
             }
             $fs = new Filesystem();
             $fs->mkdir($destination);
+            $fs->chmod($destination, 0755);
+            $directories = [$destination => true];
             foreach ($entries as $entry) {
                 ['name' => $name, 'relative' => $relative, 'directory' => $directory, 'size' => $size] = $entry;
                 $target = $destination.'/'.$relative;
+                $parent = $directory ? $target : dirname($target);
+                if (!isset($directories[$parent])) {
+                    $fs->mkdir($parent);
+                    // Nginx's worker has a different UID. A host umask of 0077
+                    // must not turn public MODX assets into unreadable files.
+                    for ($path = $parent; !isset($directories[$path]); $path = dirname($path)) {
+                        $fs->chmod($path, 0755);
+                        $directories[$path] = true;
+                    }
+                }
                 if ($directory) {
-                    $fs->mkdir($target);
                     continue;
                 }
-                $fs->mkdir(dirname($target));
                 $source = $zip->getStream($name);
                 if ($source === false) {
                     throw new \RuntimeException('Cannot read ZIP entry: '.$relative.'.');
@@ -90,6 +101,7 @@ final class Archive
                     fclose($source);
                     fclose($out);
                 }
+                $fs->chmod($target, 0644);
             }
         } finally {
             $zip->close();
