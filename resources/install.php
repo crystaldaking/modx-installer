@@ -4,6 +4,11 @@
 declare(strict_types=1);
 
 $config = json_decode(stream_get_contents(STDIN), true, 512, JSON_THROW_ON_ERROR);
+$lock = fopen('/tmp/modx-installer-operation.lock', 'c');
+if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) {
+    fwrite(STDERR, "Another installer process is still running in this container.\n");
+    exit(1);
+}
 if (is_file('/var/www/html/core/config/config.inc.php')) {
     fwrite(STDERR, "MODX configuration already exists. Refusing to reinstall over existing data.\n");
     exit(1);
@@ -34,7 +39,9 @@ if ($file === false) {
 }
 chmod($file, 0600);
 register_shutdown_function(static function () use ($file): void { @unlink($file); });
-file_put_contents($file, $xml->saveXML());
+if (file_put_contents($file, $xml->saveXML()) === false) {
+    throw new RuntimeException('Cannot write installer configuration.');
+}
 // MODX calls exit() even on some failures. The host always verifies the result separately.
 chdir('/var/www/html/setup');
 $_SERVER['argv'] = ['index.php', '--installmode=new', '--config='.$file];

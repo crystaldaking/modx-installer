@@ -13,7 +13,6 @@
     "ext-dom": "*",
     "ext-zip": "*",
     "symfony/console": "^7.4",
-    "symfony/dotenv": "^7.4",
     "symfony/filesystem": "^7.4",
     "symfony/process": "^7.4"
   },

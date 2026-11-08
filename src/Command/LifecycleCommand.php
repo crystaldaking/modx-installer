@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace ModxInstaller\Command;
 
-use ModxInstaller\{Docker, Project};
+use ModxInstaller\{Docker, Project, ProjectLock};
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\{InputInterface, InputOption};
 use Symfony\Component\Console\Output\OutputInterface;
@@ -37,6 +37,7 @@ final class LifecycleCommand extends Command
             $installed = $docker->up($project, $output);
             NewCommand::showAccess($project, $io, $installed);
         } elseif ($this->operation === 'down') {
+            $lock = new ProjectLock($project->directory);
             $docker->compose($project, ['down'], $output);
             $io->success('Containers stopped. Database volume preserved.');
         } else {

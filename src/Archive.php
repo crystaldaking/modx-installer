@@ -16,7 +16,12 @@ final class Archive
         }
         $prefix = 'modx-'.Release::validate($version).'/';
         $total = 0;
+        $entries = [];
+        $paths = [];
         try {
+            if (is_link($destination) || (file_exists($destination) && (!is_dir($destination) || count(scandir($destination)) > 2))) {
+                throw new \RuntimeException('Archive destination must be a new or empty directory.');
+            }
             if ($zip->numFiles > 40000) {
                 throw new \RuntimeException('Archive contains too many files.');
             }
@@ -34,6 +39,24 @@ final class Archive
                 if ($total > 600 * 1024 * 1024) {
                     throw new \RuntimeException('Uncompressed archive exceeds 600 MiB.');
                 }
+                $relative = implode('/', array_filter(explode('/', substr($name, strlen($prefix))), static fn (string $part): bool => $part !== '' && $part !== '.'));
+                if ($relative === '') {
+                    continue;
+                }
+                $directory = str_ends_with($name, '/');
+                $key = strtolower($relative);
+                if (isset($paths[$key]) && (!$directory || !$paths[$key])) {
+                    throw new \RuntimeException('Conflicting ZIP entry: '.$relative);
+                }
+                $paths[$key] = $directory;
+                $entries[] = ['name' => $name, 'relative' => $relative, 'directory' => $directory, 'size' => $stat['size']];
+            }
+            foreach (array_keys($paths) as $path) {
+                for ($parent = dirname($path); $parent !== '.'; $parent = dirname($parent)) {
+                    if (isset($paths[$parent]) && !$paths[$parent]) {
+                        throw new \RuntimeException('ZIP file is also used as a directory: '.$parent);
+                    }
+                }
             }
             foreach (['index.php', 'setup/index.php', 'core/docs/version.inc.php'] as $required) {
                 if ($zip->locateName($prefix.$required) === false) {
@@ -42,25 +65,25 @@ final class Archive
             }
             $fs = new Filesystem();
             $fs->mkdir($destination);
-            for ($i = 0; $i < $zip->numFiles; ++$i) {
-                $name = $zip->getNameIndex($i);
-                $relative = preg_replace('~(^|/)\./~', '$1', substr($name, strlen($prefix)));
-                if ($relative === '') {
-                    continue;
-                }
+            foreach ($entries as $entry) {
+                ['name' => $name, 'relative' => $relative, 'directory' => $directory, 'size' => $size] = $entry;
                 $target = $destination.'/'.$relative;
-                if (str_ends_with($name, '/')) {
+                if ($directory) {
                     $fs->mkdir($target);
                     continue;
                 }
                 $fs->mkdir(dirname($target));
                 $source = $zip->getStream($name);
+                if ($source === false) {
+                    throw new \RuntimeException('Cannot read ZIP entry: '.$relative.'.');
+                }
                 $out = fopen($target, 'xb');
-                if ($source === false || $out === false) {
+                if ($out === false) {
+                    fclose($source);
                     throw new \RuntimeException('Cannot extract '.$relative.'.');
                 }
                 try {
-                    if (stream_copy_to_stream($source, $out) !== $zip->statIndex($i)['size']) {
+                    if (stream_copy_to_stream($source, $out, $size + 1) !== $size) {
                         throw new \RuntimeException('Incomplete ZIP entry: '.$relative);
                     }
                 } finally {

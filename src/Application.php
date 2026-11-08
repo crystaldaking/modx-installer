@@ -10,7 +10,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 final class Application extends \Symfony\Component\Console\Application
 {
-    public const VERSION = '0.1.0';
+    public const VERSION = '0.1.1';
 
     public function __construct()
     {
@@ -30,6 +30,9 @@ final class Application extends \Symfony\Component\Console\Application
         }
         if ($command === 'new') {
             foreach ($argv as $i => $arg) {
+                if ($arg === '--') {
+                    break;
+                }
                 if (str_starts_with($arg, '--version=')) {
                     $argv[$i] = '--modx-version='.substr($arg, 10);
                 } elseif ($arg === '--version' && isset($argv[$i + 1]) && !str_starts_with($argv[$i + 1], '-')) {

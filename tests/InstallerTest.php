@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace ModxInstaller\Tests;
 
-use ModxInstaller\{Application, Archive, Project, Release, Scaffolder};
+use ModxInstaller\{Application, Archive, Project, ProjectLock, Release, Scaffolder};
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Process\Process;
@@ -171,4 +171,207 @@ final class InstallerTest extends TestCase
         self::assertStringContainsString('stable MODX 3', $process->getErrorOutput());
         self::assertDirectoryDoesNotExist($this->root.'/site');
     }
+    private function project(): Project
+    {
+        return (new Scaffolder())->create(Project::target($this->root.'/site'), '3.2.4-pl', 18080, $this->archive(), 'admin@example.test', 'en');
+    }
+
+    public function testRecreatingTheSameDirectoryDoesNotReuseDatabaseIdentity(): void
+    {
+        $a = $this->project();
+        (new Filesystem())->remove($a->directory);
+        $b = $this->project();
+        self::assertNotSame($a->metadata['name'], $b->metadata['name']);
+    }
+
+    public function testEnvironmentCannotExecuteShellCommands(): void
+    {
+        $project = $this->project();
+        $marker = $this->root.'/command-was-executed';
+        file_put_contents($project->directory.'/.env', "DB_PASSWORD=$(touch ".$marker.")\n", FILE_APPEND);
+        try {
+            $project->env();
+            self::fail('Expected command substitution refusal.');
+        } catch (\RuntimeException $e) {
+            self::assertStringContainsString('Invalid syntax', $e->getMessage());
+            self::assertFileDoesNotExist($marker);
+        }
+    }
+
+    public function testEnvironmentSyntaxErrorsDoNotExposeSecretsEvenWithVerboseCli(): void
+    {
+        $project = $this->project();
+        $secret = 'review-secret-should-stay-private';
+        file_put_contents($project->directory.'/.env', "DB_PASSWORD=".$secret." bad value\n", FILE_APPEND);
+        $process = new Process([PHP_BINARY, dirname(__DIR__).'/bin/modx', 'logs', '-p', $project->directory, '-vvv']);
+        $process->run();
+        self::assertSame(1, $process->getExitCode());
+        $output = $process->getOutput().$process->getErrorOutput();
+        self::assertStringContainsString('Invalid syntax', $output);
+        self::assertStringNotContainsString($secret, $output);
+    }
+
+    public function testExistingProjectsDoNotRequireInitialAdminCredentialsToStopOrStart(): void
+    {
+        $project = $this->project();
+        $contents = preg_replace('/^ADMIN_.*\R/m', '', file_get_contents($project->directory.'/.env'));
+        file_put_contents($project->directory.'/.env', $contents);
+        self::assertArrayHasKey('DB_PASSWORD', $project->env());
+        $this->expectException(\RuntimeException::class);
+        $project->env(true);
+    }
+
+    public function testInvalidUserIdCannotReachDocker(): void
+    {
+        $project = $this->project();
+        file_put_contents($project->directory.'/.env', "LOCAL_UID=www-data\n", FILE_APPEND);
+        $this->expectException(\RuntimeException::class);
+        $project->env();
+    }
+
+    public function testProjectLockExcludesConcurrentOperationsAndCanBeReacquired(): void
+    {
+        $project = $this->project();
+        $lock = new ProjectLock($project->directory);
+        try {
+            new ProjectLock($project->directory);
+            self::fail('Expected lock exclusion.');
+        } catch (\RuntimeException $e) {
+            self::assertStringContainsString('Another MODX operation', $e->getMessage());
+        }
+        unset($lock);
+        $second = new ProjectLock($project->directory);
+        self::assertFileExists($project->directory.'/.modx.lock');
+        unset($second);
+        self::assertFileExists($project->directory.'/.modx.lock');
+    }
+
+    public function testProjectLockDoesNotFollowSymlinks(): void
+    {
+        $project = $this->project();
+        $file = $this->root.'/outside';
+        file_put_contents($file, 'unchanged');
+        symlink($file, $project->directory.'/.modx.lock');
+        try {
+            new ProjectLock($project->directory);
+            self::fail('Expected symlink refusal.');
+        } catch (\RuntimeException) {
+            self::assertSame('unchanged', file_get_contents($file));
+        }
+    }
+
+    public function testZipAliasesAreRejectedBeforeAnyFileIsWritten(): void
+    {
+        $archive = $this->archive(['./index.php' => 'conflict']);
+        try {
+            (new Archive())->extract($archive, $this->root.'/app', '3.2.4-pl');
+            self::fail('Expected normalized path conflict.');
+        } catch (\RuntimeException $e) {
+            self::assertStringContainsString('Conflicting ZIP entry', $e->getMessage());
+            self::assertDirectoryDoesNotExist($this->root.'/app');
+        }
+    }
+
+    public function testZipFileAndDirectoryConflictsAreRejectedBeforeExtraction(): void
+    {
+        $archive = $this->archive(['core' => 'file']);
+        $this->expectException(\RuntimeException::class);
+        (new Archive())->extract($archive, $this->root.'/app', '3.2.4-pl');
+    }
+
+    public function testArchiveCannotWriteThroughExistingDestinationSymlinks(): void
+    {
+        $archive = $this->archive();
+        mkdir($this->root.'/outside');
+        symlink($this->root.'/outside', $this->root.'/app');
+        try {
+            (new Archive())->extract($archive, $this->root.'/app', '3.2.4-pl');
+            self::fail('Expected symlink destination refusal.');
+        } catch (\RuntimeException) {
+            self::assertSame(['.', '..'], scandir($this->root.'/outside'));
+        }
+    }
+
+    public function testVersionAliasHonorsEndOfOptions(): void
+    {
+        $args = ['modx', 'new', '--', '--version=3.2.4-pl'];
+        self::assertSame($args, Application::normalizeArguments($args));
+        $this->expectException(\InvalidArgumentException::class);
+        Release::validate('vv3.2.4-pl');
+    }
+
+    public function testMalformedProjectMetadataHasControlledError(): void
+    {
+        $project = $this->project();
+        file_put_contents($project->directory.'/modx.json', '{"schema":1,"name":[]}');
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Invalid or unsupported modx.json');
+        Project::find($project->directory);
+    }
+
+    public function testQuotedShellAndVariableSyntaxRemainsLiteral(): void
+    {
+        $marker = $this->root.'/must-not-exist';
+        $contents = "DB_PASSWORD='$(touch ".$marker.")'\nADMIN_PASSWORD='\${HOME} # literal'\n";
+        $values = \ModxInstaller\Environment::parse($contents);
+        self::assertSame('$(touch '.$marker.')', $values['DB_PASSWORD']);
+        self::assertSame('${HOME} # literal', $values['ADMIN_PASSWORD']);
+        self::assertFileDoesNotExist($marker);
+    }
+
+    public function testQuoteConcatenationCannotBypassEnvironmentSafety(): void
+    {
+        $marker = $this->root.'/must-not-exist';
+        $contents = 'DB_PASSWORD=$""(touch '.$marker.')';
+        try {
+            \ModxInstaller\Environment::parse($contents);
+            self::fail('Expected invalid syntax.');
+        } catch (\RuntimeException) {
+            self::assertFileDoesNotExist($marker);
+        }
+    }
+
+    public function testUpRefusesConcurrentOperationBeforeContactingDocker(): void
+    {
+        $project = $this->project();
+        $lock = new ProjectLock($project->directory);
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Another MODX operation');
+        (new \ModxInstaller\Docker())->up($project, new \Symfony\Component\Console\Output\NullOutput());
+    }
+
+    public function testInstalledMarkerWithMissingConfigurationCannotReinstall(): void
+    {
+        $project = $this->project();
+        file_put_contents($project->directory.'/.modx-installed', 'installed');
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('configuration is missing');
+        (new \ModxInstaller\Docker())->up($project, new \Symfony\Component\Console\Output\NullOutput());
+    }
+
+    public function testScaffoldMapsActualOwnershipWithoutRequiringPosixExtension(): void
+    {
+        $project = $this->project();
+        self::assertSame((string)fileowner($project->directory.'/.env'), $project->env()['LOCAL_UID']);
+        self::assertSame((string)filegroup($project->directory.'/.env'), $project->env()['LOCAL_GID']);
+    }
+
+    public function testRootPhpFpmStartupHasActionableErrorBeforeDocker(): void
+    {
+        $project = $this->project();
+        file_put_contents($project->directory.'/.env', "LOCAL_UID=0\n", FILE_APPEND);
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('non-root project owner');
+        (new \ModxInstaller\Docker())->up($project, new \Symfony\Component\Console\Output\NullOutput());
+    }
+
+    public function testOversizedEnvironmentFileIsRejected(): void
+    {
+        $project = $this->project();
+        file_put_contents($project->directory.'/.env', str_repeat('# comment\n', 10000));
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('64 KiB');
+        $project->env();
+    }
+
 }

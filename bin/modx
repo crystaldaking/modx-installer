@@ -3,7 +3,7 @@
 
 declare(strict_types=1);
 
-$autoload = [__DIR__.'/../../../autoload.php', __DIR__.'/../vendor/autoload.php'];
+$autoload = [__DIR__.'/../vendor/autoload.php', $GLOBALS['_composer_autoload_path'] ?? __DIR__.'/../../../autoload.php'];
 foreach ($autoload as $file) {
     if (is_file($file)) {
         require $file;

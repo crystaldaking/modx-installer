@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace ModxInstaller;
 
-use Symfony\Component\Dotenv\Dotenv;
 use Symfony\Component\Filesystem\Filesystem;
 
 final class Project
@@ -19,7 +18,7 @@ final class Project
         while (true) {
             if (is_file($directory.'/'.self::MARKER)) {
                 $data = json_decode(file_get_contents($directory.'/'.self::MARKER), true, 512, JSON_THROW_ON_ERROR);
-                if (($data['schema'] ?? null) !== 1 || !preg_match('/^modx-[a-z0-9-]+$/D', $data['name'] ?? '')) {
+                if (!is_array($data) || ($data['schema'] ?? null) !== 1 || !is_string($data['name'] ?? null) || !preg_match('/^modx-[a-z0-9-]{1,100}$/D', $data['name'])) {
                     throw new \RuntimeException('Invalid or unsupported modx.json.');
                 }
                 return new self($directory, $data);
@@ -70,20 +69,33 @@ final class Project
         throw new \RuntimeException('No available HTTP port. Choose another --port.');
     }
 
-    public function env(): array
+    public function env(bool $installation = false): array
     {
         $path = $this->directory.'/.env';
         if (!is_file($path)) {
             throw new \RuntimeException('Project .env is missing. Restore it from your private backup; .env.example contains no usable passwords.');
         }
-        $vars = (new Dotenv())->parse(file_get_contents($path), $path);
-        foreach (['HTTP_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD', 'DB_ROOT_PASSWORD', 'ADMIN_USER', 'ADMIN_PASSWORD', 'ADMIN_EMAIL', 'LOCAL_UID', 'LOCAL_GID'] as $key) {
+        $contents = @file_get_contents($path, false, null, 0, 65537);
+        if ($contents === false) {
+            throw new \RuntimeException('Cannot read project .env. Check its ownership and permissions.');
+        }
+        $vars = Environment::parse($contents);
+        $required = ['HTTP_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD', 'DB_ROOT_PASSWORD', 'LOCAL_UID', 'LOCAL_GID'];
+        if ($installation) {
+            $required = [...$required, 'ADMIN_USER', 'ADMIN_PASSWORD', 'ADMIN_EMAIL'];
+        }
+        foreach ($required as $key) {
             if (($vars[$key] ?? '') === '') {
                 throw new \RuntimeException('Missing '.$key.' in project .env.');
             }
         }
         if (!ctype_digit($vars['HTTP_PORT']) || (int)$vars['HTTP_PORT'] < 1024 || (int)$vars['HTTP_PORT'] > 65535) {
             throw new \RuntimeException('Invalid HTTP_PORT in .env.');
+        }
+        foreach (['LOCAL_UID', 'LOCAL_GID'] as $key) {
+            if (!ctype_digit($vars[$key]) || strlen($vars[$key]) > 10 || (float)$vars[$key] > 2147483647) {
+                throw new \RuntimeException('Invalid '.$key.' in project .env. Use a numeric user/group ID.');
+            }
         }
         return $vars;
     }

@@ -8,7 +8,7 @@ final class Release
 {
     public static function validate(string $version): string
     {
-        $version = ltrim($version, 'v');
+        $version = str_starts_with($version, 'v') ? substr($version, 1) : $version;
         if (!preg_match('/^3\.\d+\.\d+-pl$/D', $version)) {
             throw new \InvalidArgumentException('Use a stable MODX 3 version, for example 3.2.4-pl.');
         }

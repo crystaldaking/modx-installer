@@ -22,10 +22,12 @@ Unit tests use temporary synthetic ZIP files and never require Docker or network
 
 - `bin/modx` loads the Composer autoloader; `Application` registers the five commands and resolves the `new --version` alias.
 - `HttpClient`, `Release` and `Archive` handle bounded HTTPS downloads, official tag selection and validated extraction.
-- `Project` validates/discovers project directories, selects ports and reads private environment files without modifying global environment state.
+- `Project` validates/discovers project directories, selects ports and reads private environment files through a literal `Environment` parser. Neither shell execution nor variable interpolation is allowed.
 - `Scaffolder` stages files and generates project metadata, random credentials and Docker templates.
 - `Docker` uses argument arrays through Symfony Process, waits for readiness, installs, verifies and starts Nginx.
-- `resources/` are copied into generated projects. The container installer uses MODX's own CLI; verification checks a real MODX administrator before deleting setup.
+- `resources/` are copied into generated projects as editable files. For CLI operations, the current bundled install/verification code is passed to container PHP with `-r`; secrets are passed only on stdin. This also patches runtime behavior for old generated projects. The container installer uses MODX's own CLI; verification checks a real MODX administrator before deleting setup. Installed startups verify the database without depending on initial admin credentials.
+
+The smoke test also covers v0.1.0 Compose compatibility, PHAR file permissions, missing database/configuration and an early bootstrap `exit(0)`. Filesystem warnings fail the test.
 
 Keep the no-overwrite contract, private credentials, localhost binding and database-preserving `down` behavior. Add meaningful regression coverage for behavioral changes. Do not add production deployment or destructive reset behavior implicitly.
 
