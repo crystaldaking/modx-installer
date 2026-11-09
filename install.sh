@@ -33,7 +33,7 @@ final class Installer
         $options = $this->options($arguments);
         if ($options['help']) {
             echo "MODX CLI installer (Linux/macOS, PHP 8.2+)\n\n";
-            echo "Usage: sh install.sh [--version=0.2.0] [--install-dir=/absolute/path] [--no-modify-path] [--force]\n";
+            echo "Usage: sh install.sh [--version=0.2.1] [--install-dir=/absolute/path] [--no-modify-path] [--force]\n";
             echo "Defaults: latest stable release, ~/.local/bin, configure Bash/Zsh/Fish PATH.\n";
             echo "--force replaces an existing unmanaged/modified modx command. Never use sudo for a user install.\n";
             return;
@@ -175,7 +175,7 @@ final class Installer
     private function version(string $version): string
     {
         if (!preg_match('/^v?((?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))$/D', $version, $match)) {
-            throw new \InvalidArgumentException('Use a stable installer version such as --version=0.2.0.');
+            throw new \InvalidArgumentException('Use a stable installer version such as --version=0.2.1.');
         }
         return 'v'.$match[1];
     }

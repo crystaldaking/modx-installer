@@ -2,6 +2,25 @@
 
 All notable changes are recorded here. Versions follow semantic versioning.
 
+## [0.2.1] - 2026-11-09
+
+### Changed
+
+- Use PHP 8.5 FPM by default for newly generated sites, with built-in OPcache and the existing MySQL/GD/intl/ZIP extensions. Host CLI compatibility remains PHP 8.2+; existing Dockerfiles are preserved.
+- Run native installer and Docker integration jobs with PHP 8.5 on the host, while retaining the PHP 8.2–8.5 unit-test matrix.
+
+### Fixed
+
+- Disable MODX's one-time welcome popup during new-install verification using its system-setting API, then regenerate the settings cache. This prevents the first authenticated visit in another language from resetting `cultureKey` and caching untranslated manager labels. The dashboard remains available; existing-site startup preserves user welcome preferences.
+- Check a static manager CSS asset in the continuous Nginx healthcheck instead of creating login sessions every two seconds. The independent PHP and startup HTTP checks remain; the latter sends an explicit Accept-Language header.
+
+### Validation
+
+- Reproduced the untranslated first Russian manager visit with v0.2.0, then passed the same authenticated flow with the fix.
+- Expanded the real MODX smoke test to check first-login menu/dashboard translations, translated cached menus and preservation of an explicitly re-enabled welcome preference across down/up.
+- Assert PHP 8.5 and required runtime extensions in the actual site container.
+- Allocate an isolated ephemeral HTTP port for Docker smoke tests instead of claiming a normal development-site port.
+
 ## [0.2.0] - 2026-11-09
 
 ### Added
@@ -69,3 +88,5 @@ Initial public release.
 [0.1.1]: https://github.com/crystaldaking/modx-installer/compare/v0.1.0...v0.1.1
 
 [0.2.0]: https://github.com/crystaldaking/modx-installer/compare/v0.1.1...v0.2.0
+
+[0.2.1]: https://github.com/crystaldaking/modx-installer/compare/v0.2.0...v0.2.1

@@ -10,7 +10,7 @@ services:
       php:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/manager/"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/manager/templates/default/css/login.css"]
       interval: 2s
       timeout: 5s
       retries: 20

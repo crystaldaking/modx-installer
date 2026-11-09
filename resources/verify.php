@@ -14,7 +14,7 @@ register_shutdown_function(static function () use (&$verified): void {
 if (in_array('--http', $argv, true)) {
     $deadline = microtime(true) + 30;
     do {
-        $context = stream_context_create(['http' => ['timeout' => 2, 'ignore_errors' => true, 'follow_location' => 0]]);
+        $context = stream_context_create(['http' => ['timeout' => 2, 'ignore_errors' => true, 'follow_location' => 0, 'header' => "Accept-Language: en\r\n"]]);
         $response = @fopen('http://web/manager/', 'rb', false, $context);
         if (is_resource($response)) {
             $headers = stream_get_meta_data($response)['wrapper_data'] ?? [];
@@ -65,6 +65,24 @@ try {
         if (!$user || !$user->passwordMatches($config['ADMIN_PASSWORD'])) {
             fwrite(STDERR, "MODX administrator verification failed. Setup files have been preserved.\n");
             exit(1);
+        }
+        // MODX's one-time welcome screen calls reloadConfig() on first login.
+        // That resets cultureKey to the site's language after the manager has
+        // loaded a different language, leaving raw lexicon keys in menu caches.
+        // Disable only this onboarding popup on new installs, not the dashboard.
+        $welcome = $modx->getObject(MODX\Revolution\modSystemSetting::class, 'welcome_screen');
+        if ($welcome) {
+            if ((bool)$welcome->get('value')) {
+                $welcome->set('value', false);
+                if (!$welcome->save()) {
+                    throw new RuntimeException('Cannot disable the initial welcome screen.');
+                }
+            }
+            $cacheResults = [];
+            $modx->getCacheManager()->refresh(['system_settings' => []], $cacheResults);
+            if (($cacheResults['system_settings'] ?? false) !== true) {
+                throw new RuntimeException('Cannot refresh initial system settings.');
+            }
         }
     }
     if (!chmod(MODX_CORE_PATH.'config/config.inc.php', 0600)) {

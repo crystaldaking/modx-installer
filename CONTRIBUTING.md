@@ -29,7 +29,7 @@ Unit tests use temporary synthetic ZIP files and never require Docker or network
 - `Docker` uses argument arrays through Symfony Process, waits for readiness, installs, verifies and starts Nginx.
 - `resources/` are copied into generated projects as editable files. For CLI operations, the current bundled install/verification code is passed to container PHP with `-r`; secrets are passed only on stdin. This also patches runtime behavior for old generated projects. The container installer uses MODX's own CLI; verification checks a real MODX administrator before deleting setup. Installed startups verify the database without depending on initial admin credentials.
 
-The smoke test also covers v0.1.0 Compose compatibility, PHAR file permissions, missing database/configuration and an early bootstrap `exit(0)`. Filesystem warnings fail the test.
+The smoke test authenticates the first Russian manager visit after English setup and verifies menu/widget translations plus preservation of existing welcome preferences. It also covers v0.1.0 Compose compatibility, PHAR file permissions, missing database/configuration and an early bootstrap `exit(0)`. Filesystem warnings fail the test.
 
 Keep the no-overwrite contract, private credentials, localhost binding and database-preserving `down` behavior. Add meaningful regression coverage for behavioral changes. Do not add production deployment or destructive reset behavior implicitly.
 

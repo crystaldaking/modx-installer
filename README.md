@@ -22,7 +22,7 @@ cd my-site
 - A regular (non-root) host user for running site containers. UID/GID are derived from project file ownership; the PHP POSIX extension is not required.
 - macOS or Linux, on ARM64 (including Apple Silicon) or AMD64. Windows users should run inside WSL2 with Docker integration.
 
-The generated site runs PHP 8.3, MariaDB 11.4 and Nginx 1.28. The host only runs the installer. This is a **local development environment**: HTTP binds to `127.0.0.1` and the database has no published port. Production deployment, TLS, backups and upgrades are outside the current release scope.
+The generated site runs PHP 8.5, MariaDB 11.4 and Nginx 1.28. The host only runs the installer. This is a **local development environment**: HTTP binds to `127.0.0.1` and the database has no published port. Production deployment, TLS, backups and upgrades are outside the current release scope.
 
 ## Install
 
@@ -47,7 +47,7 @@ To inspect the script before running, or choose options:
 ```sh
 curl -fsSL https://github.com/crystaldaking/modx-installer/releases/latest/download/install.sh -o install-modx.sh
 sh install-modx.sh --help
-sh install-modx.sh --version=0.2.0
+sh install-modx.sh --version=0.2.1
 sh install-modx.sh --install-dir="$HOME/bin"
 sh install-modx.sh --no-modify-path
 ```
@@ -63,7 +63,7 @@ Or install from source with Composer:
 ```sh
 git clone https://github.com/crystaldaking/modx-installer.git
 cd modx-installer
-git checkout v0.2.0
+git checkout v0.2.1
 composer install --no-dev
 ./bin/modx doctor
 ./bin/modx new ../my-site
@@ -121,7 +121,7 @@ Latest stable MODX 3 is resolved from official `modxcms/revolution` tags, ignori
 
 Database and initial administrator passwords are random and saved in `.env`, excluded from Git. The initial manager login is printed after successful installation. Treat terminal output and `.env` as private. The generated `.gitignore` also excludes installed MODX configuration files containing database secrets. Back up `.env`, site files and database separately.
 
-Installation waits for database and PHP readiness, passes secrets through stdin to PHP, writes a private temporary XML outside the webroot and removes it on process shutdown. A separate MODX bootstrap verifies the administrator password before removing `app/setup` and marking installation complete. Nginx blocks setup, core, hidden files and configuration paths throughout.
+Installation waits for database and PHP readiness, passes secrets through stdin to PHP, writes a private temporary XML outside the webroot and removes it on process shutdown. A separate MODX bootstrap verifies the administrator password before removing `app/setup` and marking installation complete. New installations disable only MODX's one-time welcome popup through its system-setting API and regenerate the settings cache. This avoids a MODX first-login language reset when the manager language differs from the site language; the dashboard and chosen site language remain available. Existing-site startup preserves that preference. Nginx blocks setup, core, hidden files and configuration paths throughout.
 
 `modx up` completes projects created with `--no-start`. If installation fails, files and database are retained for diagnosis. Fix the cause and rerun `modx up`. Existing `core/config/config.inc.php` prevents a fresh install over a partially installed database; the CLI attempts verification and reports failure if the installation is inconsistent. It does not promise automatic rollback. Inspect `modx logs` and `app/core/cache/logs/`; for an unrecoverable fresh site, create another project or explicitly back up and reset the old one yourself.
 
@@ -159,7 +159,7 @@ composer build
 php dist/modx.phar --version
 ```
 
-CI checks bootstrap installation and shell PATH on Linux/macOS, runs unit tests on PHP 8.2–8.5, validates the Composer manifest, builds/smoke-tests the PHAR, and installs a real MODX site on Linux AMD64. The smoke test creates a site under umask `0077` and checks public CSS readability, writable PHAR scaffolding, the homepage, manager, blocked paths, setup removal, persistence across down/up, old project templates, missing configuration/database records and an unexpected `exit(0)` during bootstrap. See [CONTRIBUTING.md](CONTRIBUTING.md) for the architecture and release process.
+CI checks bootstrap installation and shell PATH on Linux/macOS, runs unit tests on PHP 8.2–8.5, validates the Composer manifest, builds/smoke-tests the PHAR, and installs a real MODX site on Linux AMD64. The smoke test uses an isolated ephemeral port, authenticates the first manager visit in Russian after an English installation, checks translated menus/widgets and preservation of welcome preferences, and creates a site under umask `0077` and checks public CSS readability, writable PHAR scaffolding, the homepage, manager, blocked paths, setup removal, persistence across down/up, old project templates, missing configuration/database records and an unexpected `exit(0)` during bootstrap. See [CONTRIBUTING.md](CONTRIBUTING.md) for the architecture and release process.
 
 ## Roadmap
 
@@ -169,3 +169,7 @@ CI checks bootstrap installation and shell PATH on Linux/macOS, runs unit tests 
 - Packagist distribution and richer version metadata.
 
 Independent community software. MODX is downloaded separately under its own license. See [NOTICE](NOTICE) and [MIT license](LICENSE).
+
+If an existing site created before v0.2.1 shows lexicon keys such as `system_settings` on its first visit, refresh the MODX cache and reload the manager. Updating the CLI does not overwrite an existing site's welcome preference or Compose configuration. To stop the old continuous login health probe, change only the web healthcheck URL in that site's `compose.yaml` to `http://127.0.0.1/manager/templates/default/css/login.css`, then recreate the web service. New projects include this check automatically.
+
+New sites use `php:8.5-fpm-bookworm` with PDO MySQL, mysqli, GD, intl, ZIP and the image's built-in OPcache. The CLI on the host remains compatible with PHP 8.2+. Existing site Dockerfiles are preserved: to upgrade one, change its `FROM` line to `php:8.5-fpm-bookworm`, remove `opcache` from any `docker-php-ext-install` list (it is built in for PHP 8.5), then rebuild with `modx up`. Keep any custom extensions your site needs.
